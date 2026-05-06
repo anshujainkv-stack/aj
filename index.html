@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ML Predictor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #1a1a24;
+      --border: #2a2a3a;
+      --accent: #00e5a0;
+      --accent2: #7c3aed;
+      --accent-dim: rgba(0, 229, 160, 0.12);
+      --text: #f0f0f8;
+      --text-muted: #7070a0;
+      --error: #ff4d6d;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-head);
+      overflow-x: hidden;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Glowing blobs */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+      animation: drift 12s ease-in-out infinite alternate;
+    }
+    .blob-1 { width: 500px; height: 500px; background: var(--accent2); top: -150px; right: -100px; animation-delay: 0s; }
+    .blob-2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; left: -100px; animation-delay: -4s; }
+
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(30px, 20px) scale(1.08); }
+    }
+
+    /* Layout */
+    .container {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeUp 0.7s ease both;
+    }
+    .header .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid rgba(0,229,160,0.25);
+      padding: 5px 14px;
+      border-radius: 100px;
+      margin-bottom: 20px;
+    }
+    .header .badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+    .header h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--text) 40%, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header p {
+      margin-top: 12px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 300;
+    }
+
+    /* Card */
+    .card {
+      width: 100%;
+      max-width: 640px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
+      animation: fadeUp 0.7s ease 0.1s both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Input section */
+    .field-label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .field-label span { color: var(--accent); }
+
+    /* Tabs for input type */
+    .input-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 7px;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    /* Input panels */
+    .input-panel { display: none; }
+    .input-panel.active { display: block; }
+
+    textarea, input[type="text"], input[type="number"], input[type="file"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 300;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    textarea:focus, input[type="text"]:focus, input[type="number"]:focus {
+      border-color: rgba(0,229,160,0.4);
+      box-shadow: 0 0 0 3px rgba(0,229,160,0.08);
+    }
+    textarea {
+      padding: 16px;
+      min-height: 120px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    input[type="text"], input[type="number"] {
+      padding: 13px 16px;
+    }
+
+    /* File drop zone */
+    .file-drop {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface2);
+      position: relative;
+    }
+    .file-drop:hover, .file-drop.drag-over {
+      border-color: rgba(0,229,160,0.5);
+      background: rgba(0,229,160,0.04);
+    }
+    .file-drop input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; border: none; border-radius: 0;
+    }
+    .file-drop .icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+      display: block;
+    }
+    .file-drop .drop-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-weight: 300;
+    }
+    .file-drop .drop-label strong { color: var(--accent); font-weight: 500; }
+    .file-preview {
+      display: none;
+      margin-top: 12px;
+      border-radius: 10px;
+      overflow: hidden;
+      max-height: 200px;
+      text-align: center;
+    }
+    .file-preview img {
+      max-width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .file-name {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent);
+      margin-top: 8px;
+      padding: 5px 12px;
+      background: var(--accent-dim);
+      border-radius: 6px;
+      display: none;
+    }
+
+    /* Form fields for tabular */
+    .fields-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .field-group label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.08em;
+    }
+
+    /* Submit button */
+    .submit-btn {
+      width: 100%;
+      margin-top: 24px;
+      padding: 16px;
+      background: var(--accent);
+      color: #000;
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .submit-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .submit-btn:hover::after { opacity: 0.12; }
+    .submit-btn:active { transform: scale(0.985); }
+    .submit-btn:disabled {
+      background: var(--border);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+    .submit-btn .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Result panel */
+    .result-panel {
+      margin-top: 28px;
+      border-top: 1px solid var(--border);
+      padding-top: 28px;
+      display: none;
+      animation: fadeUp 0.4s ease both;
+    }
+    .result-panel.show { display: block; }
+
+    .result-header {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .result-header .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* Prediction display */
+    .prediction-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .prediction-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+    }
+    .prediction-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1.1;
+      word-break: break-all;
+    }
+
+    /* Confidence bar */
+    .confidence-row {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .confidence-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .bar-track {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 100px;
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+      width: 0%;
+    }
+    .confidence-pct {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text);
+      min-width: 38px;
+      text-align: right;
+    }
+
+    /* Top predictions list */
+    .top-list {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .top-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .top-item-label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text);
+      min-width: 100px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-item-bar-track {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .top-item-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 100px;
+      transition: width 0.6s ease;
+    }
+    .top-item-pct {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      min-width: 36px;
+      text-align: right;
+    }
+
+    /* Raw JSON */
+    .raw-toggle {
+      margin-top: 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .raw-toggle:hover { color: var(--accent); }
+    .raw-json {
+      display: none;
+      margin-top: 10px;
+      background: #0d0d15;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #a0a0c8;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 220px;
+      overflow-y: auto;
+      line-height: 1.6;
+      font-weight: 300;
+    }
+    .raw-json.show { display: block; }
+
+    /* Error */
+    .error-box {
+      background: rgba(255,77,109,0.08);
+      border: 1px solid rgba(255,77,109,0.3);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--error);
+      line-height: 1.5;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 32px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      opacity: 0.5;
+      text-align: center;
+      letter-spacing: 0.08em;
+      animation: fadeUp 0.7s ease 0.3s both;
+    }
+    .footer a { color: var(--accent); text-decoration: none; opacity: 0.7; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 500px) {
+      .card { padding: 24px 18px; }
+      .fields-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="container">
+  <div class="header">
+    <div class="badge">ML Model API</div>
+    <h1>Prediction<br/>Interface</h1>
+    <p>Submit your input — get instant model predictions.</p>
+  </div>
+
+  <div class="card">
+    <!-- Input type tabs -->
+    <div class="field-label"><span>01</span> Input Type</div>
+    <div class="input-tabs">
+      <button class="tab-btn active" onclick="switchTab('text')">Text</button>
+      <button class="tab-btn" onclick="switchTab('image')">Image</button>
+      <button class="tab-btn" onclick="switchTab('tabular')">Tabular</button>
+    </div>
+
+    <!-- Text input -->
+    <div class="input-panel active" id="panel-text">
+      <div class="field-label"><span>02</span> Your Input</div>
+      <textarea id="text-input" placeholder="Type or paste your input here..."></textarea>
+    </div>
+
+    <!-- Image input -->
+    <div class="input-panel" id="panel-image">
+      <div class="field-label"><span>02</span> Upload Image</div>
+      <div class="file-drop" id="file-drop">
+        <input type="file" id="image-input" accept="image/*" onchange="handleFile(this)" />
+        <span class="icon">🖼️</span>
+        <div class="drop-label"><strong>Click to upload</strong> or drag & drop</div>
+        <div class="drop-label" style="margin-top:4px;font-size:11px">PNG, JPG, WEBP — any size</div>
+      </div>
+      <div class="file-name" id="file-name"></div>
+      <div class="file-preview" id="file-preview">
+        <img id="preview-img" src="" alt="Preview" />
+      </div>
+    </div>
+
+    <!-- Tabular input -->
+    <div class="input-panel" id="panel-tabular">
+      <div class="field-label"><span>02</span> Feature Values</div>
+      <div class="fields-grid" id="tabular-fields">
+        <div class="field-group">
+          <label>Feature 1</label>
+          <input type="number" class="tabular-input" data-key="feature_1" placeholder="0.0" step="any" />
+        </div>
+        <div class="field-group">
+          <label>Feature 2</label>
+          <input type="number" class="tabular-input" data-key="feature_2" placeholder="0.0" step="any" />
+        </div>
+        <div class="field-group">
+          <label>Feature 3</label>
+          <input type="number" class="tabular-input" data-key="feature_3" placeholder="0.0" step="any" />
+        </div>
+        <div class="field-group">
+          <label>Feature 4</label>
+          <input type="number" class="tabular-input" data-key="feature_4" placeholder="0.0" step="any" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <button class="submit-btn" id="submit-btn" onclick="runPrediction()">
+      <span id="btn-text">Run Prediction →</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+
+    <!-- Result -->
+    <div class="result-panel" id="result-panel">
+      <div class="result-header"><div class="dot"></div> Prediction Result</div>
+      <div id="result-content"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Replace <code>API_URL</code> in the script with your Render endpoint &nbsp;·&nbsp;
+    <a href="#" onclick="document.querySelector('.card').scrollIntoView({behavior:'smooth'});return false;">↑ back to top</a>
+  </div>
+</div>
+
+<script>
+  // ─── CONFIG ────────────────────────────────────────────────
+  const API_URL = "https://aj-hunu.onrender.com/predict";   // ← Replace API_URL with your Render link
+  // ───────────────────────────────────────────────────────────
+
+  let activeTab = 'text';
+
+  // Tab switching
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach((b,i) => {
+      b.classList.toggle('active', ['text','image','tabular'][i] === tab);
+    });
+    document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    hideResult();
+  }
+
+  // File handling
+  function handleFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('file-name').style.display = 'block';
+    document.getElementById('file-name').textContent = '📎 ' + file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('file-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Drag & drop
+  const dropZone = document.getElementById('file-drop');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      document.getElementById('image-input').files = dt.files;
+      handleFile(document.getElementById('image-input'));
+    }
+  });
+
+  function hideResult() {
+    document.getElementById('result-panel').classList.remove('show');
+  }
+
+  function setLoading(on) {
+    const btn = document.getElementById('submit-btn');
+    const text = document.getElementById('btn-text');
+    const spin = document.getElementById('spinner');
+    btn.disabled = on;
+    text.style.display = on ? 'none' : 'block';
+    spin.style.display = on ? 'block' : 'none';
+  }
+
+  async function runPrediction() {
+    hideResult();
+    setLoading(true);
+
+    try {
+      let response;
+
+      if (activeTab === 'text') {
+        const val = document.getElementById('text-input').value.trim();
+        if (!val) { showError('Please enter some text.'); setLoading(false); return; }
+        response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: val })
+        });
+
+      } else if (activeTab === 'image') {
+        const fileInput = document.getElementById('image-input');
+        if (!fileInput.files[0]) { showError('Please select an image.'); setLoading(false); return; }
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        response = await fetch(API_URL, { method: 'POST', body: formData });
+
+      } else {
+        // Tabular
+        const inputs = document.querySelectorAll('.tabular-input');
+        const payload = {};
+        inputs.forEach(inp => {
+          payload[inp.dataset.key] = inp.value !== '' ? parseFloat(inp.value) : null;
+        });
+        response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      showResult(data);
+
+    } catch (err) {
+      showError(err.message || 'Something went wrong.');
+    }
+
+    setLoading(false);
+  }
+
+  function showResult(data) {
+    const panel = document.getElementById('result-panel');
+    const content = document.getElementById('result-content');
+    panel.classList.add('show');
+
+    // Try to intelligently render the response
+    // Supports: { prediction, label, class, confidence, score, probabilities, top_k, ... }
+    const pred = data.prediction ?? data.label ?? data.class ?? data.result ?? data.output ?? null;
+    const conf = data.confidence ?? data.score ?? data.probability ?? null;
+    const topK = data.probabilities ?? data.top_k ?? data.scores ?? null;
+
+    let html = '<div class="prediction-box">';
+    html += '<div class="prediction-label">Predicted Class / Value</div>';
+    html += `<div class="prediction-value">${pred !== null ? escHtml(String(pred)) : '—'}</div>`;
+
+    if (conf !== null) {
+      const pct = (conf <= 1 ? conf * 100 : conf).toFixed(1);
+      html += `<div class="confidence-row">
+        <span class="confidence-label">Confidence</span>
+        <div class="bar-track"><div class="bar-fill" id="conf-bar"></div></div>
+        <span class="confidence-pct">${pct}%</span>
+      </div>`;
+      setTimeout(() => {
+        const bar = document.getElementById('conf-bar');
+        if (bar) bar.style.width = Math.min(100, parseFloat(pct)) + '%';
+      }, 50);
+    }
+
+    if (topK && typeof topK === 'object') {
+      const entries = Array.isArray(topK)
+        ? topK
+        : Object.entries(topK).map(([k,v]) => ({ label: k, score: v }));
+      if (entries.length > 1) {
+        html += '<div class="top-list">';
+        entries.slice(0,5).forEach((item, i) => {
+          const lbl = item.label ?? item.class ?? item.name ?? `Class ${i}`;
+          const sc = item.score ?? item.probability ?? item.confidence ?? 0;
+          const pct = (sc <= 1 ? sc * 100 : sc).toFixed(1);
+          html += `<div class="top-item">
+            <span class="top-item-label">${escHtml(String(lbl))}</span>
+            <div class="top-item-bar-track"><div class="top-item-bar-fill" id="bar-${i}" style="width:0%"></div></div>
+            <span class="top-item-pct">${pct}%</span>
+          </div>`;
+        });
+        html += '</div>';
+        setTimeout(() => {
+          entries.slice(0,5).forEach((item, i) => {
+            const sc = item.score ?? item.probability ?? item.confidence ?? 0;
+            const pct = (sc <= 1 ? sc * 100 : sc).toFixed(1);
+            const bar = document.getElementById('bar-' + i);
+            if (bar) bar.style.width = Math.min(100, parseFloat(pct)) + '%';
+          });
+        }, 50);
+      }
+    }
+
+    html += '</div>';
+
+    // Raw JSON toggle
+    html += `<button class="raw-toggle" onclick="toggleRaw(this)">▶ Raw JSON</button>
+      <div class="raw-json">${escHtml(JSON.stringify(data, null, 2))}</div>`;
+
+    content.innerHTML = html;
+  }
+
+  function toggleRaw(btn) {
+    const raw = btn.nextElementSibling;
+    const showing = raw.classList.toggle('show');
+    btn.textContent = (showing ? '▼' : '▶') + ' Raw JSON';
+  }
+
+  function showError(msg) {
+    const panel = document.getElementById('result-panel');
+    const content = document.getElementById('result-content');
+    panel.classList.add('show');
+    content.innerHTML = `<div class="error-box">⚠ ${escHtml(msg)}</div>`;
+    setLoading(false);
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
